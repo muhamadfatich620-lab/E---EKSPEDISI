@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan Ekspedisi Dokumen</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  body{font-family:Arial,sans-serif;font-size:15px;margin:0;padding:16px;max-width:480px;margin:0 auto;background:#f7f7f7;}
+  h2{margin-bottom:4px;}
+  .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.1);margin-top:14px;}
+  label{display:block;font-weight:bold;margin-top:10px;font-size:13px;}
+  input,select{width:100%;padding:10px;box-sizing:border-box;margin-top:4px;font-size:15px;border:1px solid #ccc;border-radius:4px;}
+  button{margin-top:14px;padding:12px 16px;background:#1a5fb4;color:#fff;border:none;border-radius:4px;width:100%;font-size:15px;cursor:pointer;}
+  button.secondary{background:#777;}
+  #reader{width:100%;margin-top:10px;border-radius:6px;overflow:hidden;}
+  #userInfo{background:#e3f2fd;padding:10px;border-radius:6px;margin-bottom:10px;font-size:14px;}
+  #msg{margin-top:14px;padding:10px;border-radius:4px;display:none;font-size:14px;}
+  #msg.ok{background:#eef7ee;border:1px solid #8bc34a;}
+  #msg.err{background:#fdeaea;border:1px solid #e57373;}
+  #loginError{color:#c62828;font-size:13px;margin-top:8px;display:none;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+  <h2>Scan Ekspedisi Dokumen</h2>
+
+  <!-- ============ SETUP: isi URL Web App Apps Script kamu di sini ============ -->
+  <script>
+    var APPS_SCRIPT_URL = 'GANTI_DENGAN_URL_WEB_APP_APPS_SCRIPT_ANDA';
+  </script>
+  <!-- =========================================================================== -->
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <label>Username</label>
+    <input type="text" id="username">
+    <label>Password</label>
+    <input type="password" id="password">
+    <button onclick="login()">Login</button>
+    <div id="loginError"></div>
+  </div>
+
+  <!-- SCANNER (muncul setelah login) -->
+  <div class="card hidden" id="scanCard">
+    <div id="userInfo"></div>
+    <button class="secondary" onclick="logout()">Logout / Ganti User</button>
+
+    <label>Aksi</label>
+    <select id="aksi">
+      <option value="Kirim">Kirim ke unit lain</option>
+      <option value="Terima">Terima di unit saya</option>
+    </select>
+
+    <label>Arahkan kamera ke barcode dokumen</label>
+    <div id="reader"></div>
+    <input type="text" id="noDokumen" placeholder="Akan terisi otomatis saat barcode terdeteksi">
+
+    <label>Keterangan (opsional)</label>
+    <input type="text" id="keterangan">
+
+    <button onclick="submitScan()">Catat Serah Terima</button>
+    <div id="msg"></div>
+  </div>
+
+<script>
+  var currentUser = null;
+  var html5QrCode = null;
+
+  function callApi(action, payload) {
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari CORS preflight
+      body: JSON.stringify({ action: action, payload: payload || {} })
+    }).then(function (res) { return res.json(); });
+  }
+
+  function login() {
+    var username = document.getElementById('username').value.trim();
+    var password = document.getElementById('password').value;
+    var errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+
+    if (!username || !password) return;
+
+    callApi('login', { username: username, password: password })
+      .then(function (res) {
+        if (!res.success) {
+          errEl.textContent = res.message;
+          errEl.style.display = 'block';
+          return;
+        }
+        currentUser = res;
+        localStorage.setItem('ekspedisi_user', JSON.stringify(res));
+        showScanner();
+      })
+      .catch(function (err) {
+        errEl.textContent = 'Gagal terhubung ke server: ' + err.message;
+        errEl.style.display = 'block';
+      });
+  }
+
+  function logout() {
+    localStorage.removeItem('ekspedisi_user');
+    currentUser = null;
+    if (html5QrCode) { html5QrCode.stop().catch(function () {}); }
+    document.getElementById('scanCard').classList.add('hidden');
+    document.getElementById('loginCard').classList.remove('hidden');
+  }
+
+  function showScanner() {
+    document.getElementById('loginCard').classList.add('hidden');
+    document.getElementById('scanCard').classList.remove('hidden');
+    document.getElementById('userInfo').textContent =
+      'Login sebagai: ' + currentUser.pic + ' (' + currentUser.namaUnit + ')';
+    startScanner();
+  }
+
+  function startScanner() {
+    html5QrCode = new Html5Qrcode('reader');
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 220 },
+      function (decodedText) {
+        document.getElementById('noDokumen').value = decodedText;
+        // getar/bunyi singkat sebagai tanda barcode terbaca (opsional)
+        if (navigator.vibrate) navigator.vibrate(150);
+      }
+    ).catch(function (err) {
+      showMsg('Kamera tidak dapat diakses: ' + err, false);
+    });
+  }
+
+  function submitScan() {
+    var noDokumen = document.getElementById('noDokumen').value.trim();
+    var aksi = document.getElementById('aksi').value;
+    var keterangan = document.getElementById('keterangan').value;
+
+    if (!noDokumen) {
+      showMsg('Scan atau ketik No Dokumen terlebih dahulu.', false);
+      return;
+    }
+    if (!currentUser) {
+      showMsg('Silakan login terlebih dahulu.', false);
+      return;
+    }
+
+    callApi('recordScan', {
+      noDokumen: noDokumen,
+      kodeUnit: currentUser.kodeUnit,
+      aksi: aksi,
+      pic: currentUser.pic,
+      keterangan: keterangan
+    }).then(function (res) {
+      showMsg(res.message, res.success);
+      if (res.success) {
+        document.getElementById('noDokumen').value = '';
+        document.getElementById('keterangan').value = '';
+      }
+    }).catch(function (err) {
+      showMsg('Gagal terhubung ke server: ' + err.message, false);
+    });
+  }
+
+  function showMsg(text, ok) {
+    var msg = document.getElementById('msg');
+    msg.textContent = text;
+    msg.className = ok ? 'ok' : 'err';
+    msg.style.display = 'block';
+  }
+
+  // auto-login kalau device ini sudah pernah login sebelumnya
+  (function initFromStorage() {
+    var saved = localStorage.getItem('ekspedisi_user');
+    if (saved) {
+      currentUser = JSON.parse(saved);
+      showScanner();
+    }
+  })();
+</script>
+
+</body>
+</html>
