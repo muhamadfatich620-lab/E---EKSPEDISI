@@ -3,28 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scan Ekspedisi Dokumen</title>
+<title>e-Ekspedisi Dokumen</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-  body{font-family:Arial,sans-serif;font-size:15px;margin:0;padding:16px;max-width:480px;margin:0 auto;background:#f7f7f7;}
+  body{font-family:Arial,sans-serif;font-size:15px;margin:0;padding:16px;max-width:520px;margin:0 auto;background:#f7f7f7;}
   h2{margin-bottom:4px;}
   .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.1);margin-top:14px;}
   label{display:block;font-weight:bold;margin-top:10px;font-size:13px;}
   input,select{width:100%;padding:10px;box-sizing:border-box;margin-top:4px;font-size:15px;border:1px solid #ccc;border-radius:4px;}
   button{margin-top:14px;padding:12px 16px;background:#1a5fb4;color:#fff;border:none;border-radius:4px;width:100%;font-size:15px;cursor:pointer;}
   button.secondary{background:#777;}
+  button.small{width:auto;padding:6px 10px;margin-top:0;font-size:13px;}
   #reader{width:100%;margin-top:10px;border-radius:6px;overflow:hidden;}
   #userInfo{background:#e3f2fd;padding:10px;border-radius:6px;margin-bottom:10px;font-size:14px;}
-  #msg{margin-top:14px;padding:10px;border-radius:4px;display:none;font-size:14px;}
-  #msg.ok{background:#eef7ee;border:1px solid #8bc34a;}
-  #msg.err{background:#fdeaea;border:1px solid #e57373;}
+  #msg,#formMsg{margin-top:14px;padding:10px;border-radius:4px;display:none;font-size:14px;}
+  #msg.ok,#formMsg.ok{background:#eef7ee;border:1px solid #8bc34a;}
+  #msg.err,#formMsg.err{background:#fdeaea;border:1px solid #e57373;}
   #loginError{color:#c62828;font-size:13px;margin-top:8px;display:none;}
   .hidden{display:none !important;}
+
+  /* Tabs */
+  .tabbar{display:flex;gap:8px;margin-top:14px;}
+  .tabbtn{flex:1;padding:10px;text-align:center;background:#fff;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;color:#555;}
+  .tabbtn.active{background:#1a5fb4;color:#fff;border-color:#1a5fb4;}
+
+  /* Detail item table (Buat Dokumen) */
+  table{width:100%;border-collapse:collapse;margin-top:8px;}
+  th,td{border:1px solid #ddd;padding:6px;font-size:12px;}
+  th{background:#f0f0f0;}
+  td input{margin-top:0;padding:6px;font-size:13px;}
+  .row2{display:flex;gap:8px;}
+  .row2 > div{flex:1;}
 </style>
 </head>
 <body>
 
-  <h2>Scan Ekspedisi Dokumen</h2>
+  <h2>e-Ekspedisi Dokumen</h2>
 
   <!-- ============ SETUP: isi URL Web App Apps Script kamu di sini ============ -->
   <script>
@@ -42,31 +56,104 @@
     <div id="loginError"></div>
   </div>
 
-  <!-- SCANNER (muncul setelah login) -->
-  <div class="card hidden" id="scanCard">
-    <div id="userInfo"></div>
-    <button class="secondary" onclick="logout()">Logout / Ganti User</button>
+  <!-- KONTEN SETELAH LOGIN -->
+  <div id="mainArea" class="hidden">
+    <div class="card" style="margin-top:0;">
+      <div id="userInfo"></div>
+      <button class="secondary" onclick="logout()">Logout / Ganti User</button>
+    </div>
 
-    <label>Aksi</label>
-    <select id="aksi">
-      <option value="Kirim">Kirim ke unit lain</option>
-      <option value="Terima">Terima di unit saya</option>
-    </select>
+    <div class="tabbar">
+      <div class="tabbtn active" id="tabBtnScan" onclick="switchTab('scan')">📷 Scan Ekspedisi</div>
+      <div class="tabbtn" id="tabBtnForm" onclick="switchTab('form')">📝 Buat Dokumen</div>
+    </div>
 
-    <label>Arahkan kamera ke barcode dokumen</label>
-    <div id="reader"></div>
-    <input type="text" id="noDokumen" placeholder="Akan terisi otomatis saat barcode terdeteksi">
+    <!-- ============ TAB: SCAN EKSPEDISI ============ -->
+    <div class="card" id="scanTab">
+      <label>Aksi</label>
+      <select id="aksi">
+        <option value="Kirim">Kirim ke unit lain</option>
+        <option value="Terima">Terima di unit saya</option>
+      </select>
 
-    <label>Keterangan (opsional)</label>
-    <input type="text" id="keterangan">
+      <label>Arahkan kamera ke barcode dokumen</label>
+      <div id="reader"></div>
+      <input type="text" id="noDokumen" placeholder="Akan terisi otomatis saat barcode terdeteksi">
 
-    <button onclick="submitScan()">Catat Serah Terima</button>
-    <div id="msg"></div>
+      <label>Keterangan (opsional)</label>
+      <input type="text" id="keterangan">
+
+      <button onclick="submitScan()">Catat Serah Terima</button>
+      <div id="msg"></div>
+    </div>
+
+    <!-- ============ TAB: BUAT DOKUMEN ============ -->
+    <div class="card hidden" id="formTab">
+      <div class="row2">
+        <div>
+          <label>Bank</label>
+          <input type="text" id="f_bank">
+        </div>
+        <div>
+          <label>Tanggal</label>
+          <input type="date" id="f_date">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>No Rekening</label>
+          <input type="text" id="f_noRekening">
+        </div>
+        <div>
+          <label>Nama Penerima</label>
+          <input type="text" id="f_namaPenerima">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>Partner</label>
+          <input type="text" id="f_partner">
+        </div>
+        <div>
+          <label>Responsible</label>
+          <input type="text" id="f_responsible">
+        </div>
+      </div>
+
+      <label>Unit Asal (unit yang membuat dokumen ini)</label>
+      <select id="f_unit"></select>
+
+      <label>PJ (Penanggung Jawab / Unit Peminta)</label>
+      <input type="text" id="f_pj">
+
+      <label>Approval (Manajer Keuangan)</label>
+      <input type="text" id="f_approval2">
+
+      <label style="margin-top:16px;">Detail Item</label>
+      <table id="detailTable">
+        <tr><th>Account</th><th>Keterangan</th><th>Total</th><th></th></tr>
+      </table>
+      <button type="button" class="small secondary" onclick="addRow()">+ Tambah Baris</button>
+
+      <button type="button" onclick="submitDokumen()">Simpan &amp; Buat Dokumen</button>
+      <div id="formMsg"></div>
+
+      <div class="hidden" id="formResult" style="margin-top:14px;padding:12px;background:#eef7ee;border:1px solid #8bc34a;border-radius:6px;">
+        <b>Dokumen berhasil dibuat!</b><br>
+        No Dokumen: <span id="noDokResult"></span><br>
+        <button type="button" onclick="window.open(printUrl,'_blank')">Cetak / Lihat Dokumen</button>
+        <button type="button" class="secondary" onclick="resetForm()">Buat Dokumen Baru</button>
+      </div>
+    </div>
   </div>
 
 <script>
   var currentUser = null;
   var html5QrCode = null;
+  var printUrl = '';
+  var unitsLoaded = false;
 
   function callApi(action, payload) {
     return fetch(APPS_SCRIPT_URL, {
@@ -76,6 +163,7 @@
     }).then(function (res) { return res.json(); });
   }
 
+  // ---------- LOGIN / LOGOUT ----------
   function login() {
     var username = document.getElementById('username').value.trim();
     var password = document.getElementById('password').value;
@@ -93,7 +181,7 @@
         }
         currentUser = res;
         localStorage.setItem('ekspedisi_user', JSON.stringify(res));
-        showScanner();
+        showMain();
       })
       .catch(function (err) {
         errEl.textContent = 'Gagal terhubung ke server: ' + err.message;
@@ -105,30 +193,45 @@
     localStorage.removeItem('ekspedisi_user');
     currentUser = null;
     if (html5QrCode) { html5QrCode.stop().catch(function () {}); }
-    document.getElementById('scanCard').classList.add('hidden');
+    document.getElementById('mainArea').classList.add('hidden');
     document.getElementById('loginCard').classList.remove('hidden');
   }
 
-  function showScanner() {
+  function showMain() {
     document.getElementById('loginCard').classList.add('hidden');
-    document.getElementById('scanCard').classList.remove('hidden');
+    document.getElementById('mainArea').classList.remove('hidden');
     document.getElementById('userInfo').textContent =
       'Login sebagai: ' + currentUser.pic + ' (' + currentUser.namaUnit + ')';
     startScanner();
+    loadUnitsIntoForm();
   }
 
+  // ---------- TABS ----------
+  function switchTab(name) {
+    var isScan = name === 'scan';
+    document.getElementById('scanTab').classList.toggle('hidden', !isScan);
+    document.getElementById('formTab').classList.toggle('hidden', isScan);
+    document.getElementById('tabBtnScan').classList.toggle('active', isScan);
+    document.getElementById('tabBtnForm').classList.toggle('active', !isScan);
+
+    if (isScan && !html5QrCode) {
+      startScanner();
+    }
+  }
+
+  // ---------- SCAN EKSPEDISI ----------
   function startScanner() {
+    if (html5QrCode) return;
     html5QrCode = new Html5Qrcode('reader');
     html5QrCode.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: 220 },
       function (decodedText) {
         document.getElementById('noDokumen').value = decodedText;
-        // getar/bunyi singkat sebagai tanda barcode terbaca (opsional)
         if (navigator.vibrate) navigator.vibrate(150);
       }
     ).catch(function (err) {
-      showMsg('Kamera tidak dapat diakses: ' + err, false);
+      showMsg('msg', 'Kamera tidak dapat diakses: ' + err, false);
     });
   }
 
@@ -138,11 +241,11 @@
     var keterangan = document.getElementById('keterangan').value;
 
     if (!noDokumen) {
-      showMsg('Scan atau ketik No Dokumen terlebih dahulu.', false);
+      showMsg('msg', 'Scan atau ketik No Dokumen terlebih dahulu.', false);
       return;
     }
     if (!currentUser) {
-      showMsg('Silakan login terlebih dahulu.', false);
+      showMsg('msg', 'Silakan login terlebih dahulu.', false);
       return;
     }
 
@@ -153,21 +256,100 @@
       pic: currentUser.pic,
       keterangan: keterangan
     }).then(function (res) {
-      showMsg(res.message, res.success);
+      showMsg('msg', res.message, res.success);
       if (res.success) {
         document.getElementById('noDokumen').value = '';
         document.getElementById('keterangan').value = '';
       }
     }).catch(function (err) {
-      showMsg('Gagal terhubung ke server: ' + err.message, false);
+      showMsg('msg', 'Gagal terhubung ke server: ' + err.message, false);
     });
   }
 
-  function showMsg(text, ok) {
-    var msg = document.getElementById('msg');
-    msg.textContent = text;
-    msg.className = ok ? 'ok' : 'err';
-    msg.style.display = 'block';
+  // ---------- BUAT DOKUMEN ----------
+  function loadUnitsIntoForm() {
+    if (unitsLoaded) return;
+    callApi('getUnitList', {}).then(function (units) {
+      var sel = document.getElementById('f_unit');
+      sel.innerHTML = '';
+      (units || []).forEach(function (u) {
+        var opt = document.createElement('option');
+        opt.value = u.kode;
+        opt.textContent = u.kode + ' - ' + u.nama;
+        sel.appendChild(opt);
+      });
+      // default ke unit yang sedang login, kalau ada
+      if (currentUser && currentUser.kodeUnit) sel.value = currentUser.kodeUnit;
+      unitsLoaded = true;
+    });
+  }
+
+  function addRow() {
+    var table = document.getElementById('detailTable');
+    var row = table.insertRow(-1);
+    row.innerHTML =
+      '<td><input type="text" class="acc"></td>' +
+      '<td><input type="text" class="ket"></td>' +
+      '<td><input type="number" class="tot"></td>' +
+      '<td><button type="button" class="small secondary" onclick="this.closest(\'tr\').remove()">Hapus</button></td>';
+  }
+
+  function submitDokumen() {
+    var details = [];
+    var rows = document.querySelectorAll('#detailTable tr');
+    for (var i = 1; i < rows.length; i++) {
+      var acc = rows[i].querySelector('.acc').value;
+      var ket = rows[i].querySelector('.ket').value;
+      var tot = rows[i].querySelector('.tot').value;
+      if (acc || ket || tot) details.push({ account: acc, keterangan: ket, total: tot });
+    }
+
+    var form = {
+      bank: document.getElementById('f_bank').value,
+      date: document.getElementById('f_date').value,
+      noRekening: document.getElementById('f_noRekening').value,
+      namaPenerima: document.getElementById('f_namaPenerima').value,
+      partner: document.getElementById('f_partner').value,
+      responsible: document.getElementById('f_responsible').value,
+      unit: document.getElementById('f_unit').value,
+      pj: document.getElementById('f_pj').value,
+      approval2: document.getElementById('f_approval2').value,
+      details: details
+    };
+
+    if (!form.unit) {
+      showMsg('formMsg', 'Pilih Unit Asal terlebih dahulu.', false);
+      return;
+    }
+
+    callApi('saveDokumen', form).then(function (res) {
+      if (!res.success) {
+        showMsg('formMsg', res.message || 'Gagal menyimpan dokumen.', false);
+        return;
+      }
+      document.getElementById('noDokResult').textContent = res.noDokumen;
+      printUrl = APPS_SCRIPT_URL + '?page=print&noDokumen=' + encodeURIComponent(res.noDokumen);
+      document.getElementById('formResult').classList.remove('hidden');
+      document.getElementById('formMsg').style.display = 'none';
+    }).catch(function (err) {
+      showMsg('formMsg', 'Gagal terhubung ke server: ' + err.message, false);
+    });
+  }
+
+  function resetForm() {
+    document.getElementById('formResult').classList.add('hidden');
+    ['f_bank','f_date','f_noRekening','f_namaPenerima','f_partner','f_responsible','f_pj','f_approval2']
+      .forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('detailTable').querySelectorAll('tr:not(:first-child)').forEach(function (r) { r.remove(); });
+    addRow();
+  }
+
+  // ---------- HELPERS ----------
+  function showMsg(elId, text, ok) {
+    var el = document.getElementById(elId);
+    el.textContent = text;
+    el.className = ok ? 'ok' : 'err';
+    el.style.display = 'block';
   }
 
   // auto-login kalau device ini sudah pernah login sebelumnya
@@ -175,9 +357,11 @@
     var saved = localStorage.getItem('ekspedisi_user');
     if (saved) {
       currentUser = JSON.parse(saved);
-      showScanner();
+      showMain();
     }
   })();
+
+  addRow();
 </script>
 
 </body>
